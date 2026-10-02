@@ -243,7 +243,8 @@ function renderDetail() {
     '<h3 class="sec">Notes</h3><div id="notes"></div>' +
     '<textarea id="note-input" placeholder="Add a note…"></textarea>' +
     '<div class="rowbtns"><button class="btn sm" id="add-note">Add note</button></div>' +
-    '<h3 class="sec">Activity</h3><div id="activity"></div>';
+    '<h3 class="sec">Activity</h3><div id="activity"></div>' +
+    '<h3 class="sec">Danger zone</h3><div class="rowbtns"><button class="btn sm danger" id="del-deal">Delete this deal</button></div>';
 
   // pipeline buttons
   const pl = $('pipeline');
@@ -278,6 +279,25 @@ function renderDetail() {
     const link = d.contractFile && d.contractFile.driveLink;
     if (link) window.open(link, '_blank', 'noopener');
     else showToast('No contract link on this deal.', 'error');
+  });
+
+  const del = $('del-deal');
+  if (del) del.addEventListener('click', async () => {
+    if (!requireAuth()) return;
+    if (!confirm('Delete this deal permanently from the CRM? This cannot be undone. (Its contract file stays in your Drive\'s JV Contracts folder — trash it there if you want it gone.)')) return;
+    del.disabled = true;
+    try {
+      await db.collection('jv_deals').doc(d.id).delete();
+      selectedId = null;
+      allDeals = allDeals.filter(x => x.id !== d.id);
+      renderList();
+      renderDetail();
+      showToast('Deal deleted.', 'ok');
+    } catch (e) {
+      console.error(e);
+      showToast('Could not delete the deal.', 'error');
+      del.disabled = false;
+    }
   });
 }
 
