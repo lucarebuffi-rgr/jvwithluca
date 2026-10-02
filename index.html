@@ -44,10 +44,10 @@
   .maps{display:flex; gap:16px; justify-content:center; align-items:flex-start; padding:30px 0 10px; flex-wrap:nowrap;}
   .state-card{text-align:center; cursor:pointer; background:none; border:none; font-family:inherit; padding:6px;}
   .state-card svg{height:auto; display:block; margin:0 auto; transition:filter .25s ease, transform .25s ease;}
-  #pick-ga svg{width:min(320px,42vw);}
-  #pick-tx svg{width:min(420px,45vw);}
+  #pick-ga svg{width:min(320px,42vw); filter:drop-shadow(0 0 14px rgba(240,212,154,.4));}
+  #pick-tx svg{width:min(420px,45vw); filter:drop-shadow(0 0 14px rgba(240,212,154,.4));}
   .state-card path{fill:#c9a86a; stroke:#8a6f3e; stroke-width:2; transition:fill .25s ease;}
-  .state-card:hover svg, .state-card:focus-visible svg{filter:drop-shadow(0 0 22px rgba(240,212,154,.65)); transform:scale(1.04);}
+  #pick-ga:hover svg, #pick-tx:hover svg, #pick-ga:focus-visible svg, #pick-tx:focus-visible svg{filter:drop-shadow(0 0 26px rgba(240,212,154,.75)); transform:scale(1.04);}
   .state-card:hover path{fill:#e3c078;}
   .state-card .sname{margin-top:10px; font-size:20px; letter-spacing:.3em; text-indent:.3em; color:var(--gold-bright); font-family:system-ui,sans-serif; font-weight:600;}
   .state-card .cta{margin-top:6px; font-size:13px; color:var(--muted); font-family:system-ui,sans-serif; letter-spacing:.08em;}
