@@ -175,25 +175,23 @@ $('deal-form').addEventListener('submit', async e => {
   btn.textContent = 'SUBMIT DEAL';
 });
 
-/* ---------- Drive upload via hidden iframe + postMessage ----------
-   Apps Script web apps 302-redirect POSTs, which breaks fetch; the reliable
-   pattern is a form POST into a hidden iframe, with the script posting the
-   JSON result back to this page. */
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => {
-      const s = String(r.result || '');
-      const i = s.indexOf('base64,');
-      resolve(i >= 0 ? s.slice(i + 7) : s);
-    };
-    r.onerror = () => reject(new Error('could not read file'));
-    r.readAsDataURL(file);
-  });
+/* ---------- Drive upload: fire-and-forget POST + JSONP poll ----------
+   The Apps Script response can't be read back through the hidden iframe
+   (Google wraps it in a sandbox container page), so: the page POSTs the
+   file and forgets the response; the script stashes the result in its cache
+   under a random token; the page polls the script via JSONP script tags
+   (no CORS issues) until the result appears. */
+function randomToken() {
+  const a = new Uint8Array(16);
+  crypto.getRandomValues(a);
+  return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 function uploadViaAppsScript(payload) {
   return new Promise((resolve, reject) => {
+    payload.token = randomToken();
+
+    // 1. Fire-and-forget POST through a hidden iframe.
     const tag = 'up' + Date.now();
     const iframe = document.createElement('iframe');
     iframe.name = tag;
@@ -208,36 +206,47 @@ function uploadViaAppsScript(payload) {
     input.name = 'json';
     input.value = JSON.stringify(payload);
     form.appendChild(input);
-
-    let done = false;
-    const timer = setTimeout(() => finish(new Error('upload timed out')), 120000);
-
-    function finish(err, data) {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      window.removeEventListener('message', onMsg);
-      iframe.remove();
-      form.remove();
-      if (err) reject(err);
-      else if (data && data.ok) resolve(data);
-      else reject(new Error((data && data.error) || 'upload failed'));
-    }
-    function onMsg(ev) {
-      if (!/\.googleusercontent\.com$/.test(ev.origin) && ev.origin !== 'https://script.google.com') return;
-      let data = null;
-      try { data = JSON.parse(ev.data); } catch (e) { return; }
-      if (!data || typeof data.ok === 'undefined') return;
-      finish(null, data);
-    }
-
-    window.addEventListener('message', onMsg);
     document.body.appendChild(iframe);
     document.body.appendChild(form);
-    try {
-      form.submit();
-    } catch (e) {
-      finish(e);
+    try { form.submit(); } catch (e) { /* poll will time out below */ }
+
+    // 2. Poll for the result via JSONP.
+    const started = Date.now();
+    const cbName = 'jvUp' + Date.now().toString(36);
+    let timer = null;
+    function cleanup() {
+      if (timer) clearInterval(timer);
+      window[cbName] = function () {}; // no-op for any late poll responses
+      iframe.remove();
+      form.remove();
+      document.querySelectorAll('script[data-jvup]').forEach(s => s.remove());
     }
+    window[cbName] = function (data) {
+      if (data && data.ok) { cleanup(); resolve(data); }
+      else if (data && data.error) { cleanup(); reject(new Error(data.error)); }
+      // pending → keep polling
+    };
+    timer = setInterval(() => {
+      if (Date.now() - started > 120000) { cleanup(); reject(new Error('upload timed out')); return; }
+      const s = document.createElement('script');
+      s.setAttribute('data-jvup', '1');
+      s.src = APPS_SCRIPT_URL + '?token=' + encodeURIComponent(payload.token) + '&callback=' + encodeURIComponent(cbName);
+      s.onerror = function () { s.remove(); };
+      document.body.appendChild(s);
+      setTimeout(function () { s.remove(); }, 20000);
+    }, 2500);
   });
 }
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const s = String(r.result || '');
+      const i = s.indexOf('base64,');
+      resolve(i >= 0 ? s.slice(i + 7) : s);
+    };
+    r.onerror = () => reject(new Error('could not read file'));
+    r.readAsDataURL(file);
+  });
+}
+
