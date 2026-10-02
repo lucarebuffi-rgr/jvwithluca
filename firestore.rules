@@ -1,0 +1,80 @@
+rules_version = '2';
+// JV deal-submission CRM — Firestore rules for project rgr-crm-941ab.
+// Publish in the Firebase console: Firestore Database > Rules.
+// DO NOT publish until Luca approves. Code-only build — not deployed.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isLuca() {
+      return request.auth != null
+        && request.auth.token.email == 'luca.rebuffi@royalgroupsrealty.com';
+    }
+
+    // Public intake form writes. Every required field must be present with the
+    // right type; strings are length-capped; email/phone/URL get basic pattern
+    // checks; dollar fields must be numbers >= 0; consent must be affirmed;
+    // status must be "new". No extra top-level keys allowed on create.
+    function validDealCreate() {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+          'firstName', 'lastName', 'phone', 'email', 'street', 'city', 'state',
+          'zip', 'normalizedAddress', 'picturesLink', 'repairsEstimate',
+          'zestimate', 'closeDate', 'contractAmount', 'smsConsent', 'status',
+          'submittedAt', 'source'
+        ])
+        && d.firstName is string && d.firstName.size() > 0 && d.firstName.size() <= 100
+        && d.lastName is string && d.lastName.size() > 0 && d.lastName.size() <= 100
+        && d.phone is string && d.phone.size() >= 7 && d.phone.size() <= 30
+        && d.email is string && d.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$') && d.email.size() <= 200
+        && d.street is string && d.street.size() > 0 && d.street.size() <= 200
+        && d.city is string && d.city.size() > 0 && d.city.size() <= 100
+        && d.state is string && (d.state == 'GA' || d.state == 'TX')
+        && d.zip is string && d.zip.size() > 0 && d.zip.size() <= 20
+        && d.normalizedAddress is string && d.normalizedAddress.size() > 0 && d.normalizedAddress.size() <= 500
+        && d.picturesLink is string && d.picturesLink.matches('^https?://.+') && d.picturesLink.size() <= 500
+        && d.repairsEstimate is number && d.repairsEstimate >= 0
+        && d.zestimate is number && d.zestimate >= 0
+        && d.closeDate is string && d.closeDate.size() > 0 && d.closeDate.size() <= 20
+        && d.contractAmount is number && d.contractAmount >= 0
+        && d.smsConsent is map
+        && d.smsConsent.value == true
+        && d.smsConsent.textVersion == 'v1-2026-10-02'
+        && d.status == 'new'
+        && d.submittedAt == request.time
+        && d.source == 'jvwithluca-web';
+    }
+
+    // After the public client uploads the contract file to Luca's Drive (via
+    // the Apps Script uploader), it attaches the file reference to its own
+    // doc. This is the ONLY public update allowed: the single contractFile map.
+    function validContractAttach(dealId) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.diff(before).affectedKeys().hasOnly(['contractFile'])
+        && after.contractFile is map
+        && after.contractFile.keys().hasOnly(['driveFileId', 'driveLink', 'name', 'size'])
+        && after.contractFile.driveFileId is string && after.contractFile.driveFileId.size() > 0 && after.contractFile.driveFileId.size() <= 100
+        && after.contractFile.driveLink is string && after.contractFile.driveLink.matches('^https?://.+') && after.contractFile.driveLink.size() <= 500
+        && after.contractFile.name is string && after.contractFile.name.size() > 0 && after.contractFile.name.size() <= 200
+        && after.contractFile.size is number && after.contractFile.size > 0
+        && after.status == 'new';
+    }
+
+    match /jv_deals/{dealId} {
+      allow create: if validDealCreate();
+      allow update: if isLuca() || validContractAttach(dealId);
+      // Public clients may delete only their own incomplete draft (upload
+      // failed before the contract was attached); Luca may delete anything.
+      allow read: if isLuca();
+      allow delete: if isLuca()
+        || (resource.data.status == 'new' && !('contractFile' in resource.data));
+    }
+
+    // Default deny: nothing else in this database is readable/writable.
+    // (Existing stacked/zombies collections keep their own rules — merge this
+    // file's jv_deals block into the live ruleset rather than replacing it.)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
