@@ -17,7 +17,7 @@
   body{background:var(--bg); color:var(--text); font-family:Georgia,'Times New Roman',serif; min-height:100vh;}
   .wrap{max-width:1080px; margin:0 auto; padding:0 20px;}
   header.hero{text-align:center; padding:56px 20px 10px;}
-  .hero h1{
+    .hero h1{
     font-size:clamp(42px,7vw,76px); letter-spacing:.12em; font-weight:700;
     color:var(--gold-bright);
     text-shadow:0 0 18px rgba(212,175,122,.55), 0 0 60px rgba(212,175,122,.25);
@@ -25,11 +25,11 @@
   .hero p.tag{color:var(--muted); letter-spacing:.28em; font-size:13px; margin-top:10px; text-transform:uppercase; font-family:system-ui,sans-serif;}
   .avatar-zone{display:flex; justify-content:center; padding:26px 0 6px;}
   .avatar-zone img{
-    width:190px; height:270px; object-fit:cover; border-radius:14px;
-    border:2px solid var(--gold-dim);
-    box-shadow:0 0 30px rgba(212,175,122,.35);
+    width:230px; height:230px; object-fit:cover; border-radius:50%;
+    border:none;
+    box-shadow:0 0 34px rgba(212,175,122,.40);
     animation:floaty 4.5s ease-in-out infinite;
-    background:#1a1a1a;
+    background:transparent;
   }
   @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
   .maps{display:flex; gap:32px; justify-content:center; align-items:flex-start; padding:30px 0 10px; flex-wrap:wrap;}
@@ -82,7 +82,7 @@
   footer{text-align:center; padding:30px 20px 46px; color:#5d5545; font-size:12px; font-family:system-ui,sans-serif; letter-spacing:.1em;}
   @media (max-width:640px){
     .frow{grid-template-columns:1fr;}
-    .avatar-zone img{width:150px; height:214px;}
+    .avatar-zone img{width:170px; height:170px;}
     .form-card{padding:24px 18px;}
   }
 </style>
