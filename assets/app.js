@@ -175,12 +175,17 @@ $('deal-form').addEventListener('submit', async e => {
   btn.textContent = 'SUBMIT DEAL';
 });
 
-/* ---------- Drive upload: fire-and-forget POST + JSONP poll ----------
+/* ---------- Drive upload: fire-and-forget POST + cookieless poll ----------
    The Apps Script response can't be read back through the hidden iframe
    (Google wraps it in a sandbox container page), so: the page POSTs the
    file and forgets the response; the script stashes the result in its cache
-   under a random token; the page polls the script via JSONP script tags
-   (no CORS issues) until the result appears. */
+   under a random token; the page polls the script until the result appears.
+
+   The poll MUST NOT send Google cookies (credentials:'omit'): in a browser
+   signed into Google, cookie'd requests get bounced through Google's
+   multi-login redirect (/u/N/) which serves a 404 page instead of running
+   the script. Anonymous requests skip that and work. The script sends
+   Access-Control-Allow-Origin: *, so the page can read the reply. */
 function randomToken() {
   const a = new Uint8Array(16);
   crypto.getRandomValues(a);
@@ -210,30 +215,35 @@ function uploadViaAppsScript(payload) {
     document.body.appendChild(form);
     try { form.submit(); } catch (e) { /* poll will time out below */ }
 
-    // 2. Poll for the result via JSONP.
+    // 2. Poll for the result. credentials:'omit' is essential (see above).
     const started = Date.now();
     const cbName = 'jvUp' + Date.now().toString(36);
     let timer = null;
     function cleanup() {
       if (timer) clearInterval(timer);
-      window[cbName] = function () {}; // no-op for any late poll responses
       iframe.remove();
       form.remove();
-      document.querySelectorAll('script[data-jvup]').forEach(s => s.remove());
     }
-    window[cbName] = function (data) {
+    function handleData(data) {
       if (data && data.ok) { cleanup(); resolve(data); }
       else if (data && data.error) { cleanup(); reject(new Error(data.error)); }
       // pending → keep polling
-    };
-    timer = setInterval(() => {
+    }
+    timer = setInterval(async () => {
       if (Date.now() - started > 120000) { cleanup(); reject(new Error('upload timed out')); return; }
-      const s = document.createElement('script');
-      s.setAttribute('data-jvup', '1');
-      s.src = APPS_SCRIPT_URL + '?token=' + encodeURIComponent(payload.token) + '&callback=' + encodeURIComponent(cbName);
-      s.onerror = function () { s.remove(); };
-      document.body.appendChild(s);
-      setTimeout(function () { s.remove(); }, 20000);
+      try {
+        const res = await fetch(
+          APPS_SCRIPT_URL + '?token=' + encodeURIComponent(payload.token) + '&callback=' + encodeURIComponent(cbName),
+          { credentials: 'omit' }
+        );
+        if (!res.ok) return; // try again on the next tick
+        const text = await res.text();
+        const m = text.match(/^[^(]*\(([\s\S]*)\)\s*;?\s*$/);
+        if (!m) return;
+        handleData(JSON.parse(m[1]));
+      } catch (e) {
+        // network hiccup → try again on the next tick
+      }
     }, 2500);
   });
 }
