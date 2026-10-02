@@ -34,7 +34,9 @@
   @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
   .maps{display:flex; gap:32px; justify-content:center; align-items:flex-start; padding:30px 0 10px; flex-wrap:wrap;}
   .state-card{text-align:center; cursor:pointer; background:none; border:none; font-family:inherit; padding:6px;}
-  .state-card svg{width:min(300px,70vw); height:auto; display:block; margin:0 auto; transition:filter .25s ease, transform .25s ease;}
+  .state-card svg{height:auto; display:block; margin:0 auto; transition:filter .25s ease, transform .25s ease;}
+  #pick-ga svg{width:min(300px,70vw);}
+  #pick-tx svg{width:min(460px,92vw);}
   .state-card path{fill:#c9a86a; stroke:#8a6f3e; stroke-width:2; transition:fill .25s ease;}
   .state-card:hover svg, .state-card:focus-visible svg{filter:drop-shadow(0 0 22px rgba(240,212,154,.65)); transform:scale(1.04);}
   .state-card:hover path{fill:#e3c078;}
