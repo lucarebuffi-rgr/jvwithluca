@@ -12,7 +12,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
-const storage = firebase.storage();
 
 /* ---------------- Auth: Google sign-in, Luca-only data ----------------
    Firestore rules allow READS and WRITES on jv_deals only from Luca's
@@ -274,17 +273,11 @@ function renderDetail() {
     : '<div style="color:var(--muted);font-size:13px;">No activity yet.</div>';
 
   const dl = $('dl-contract');
-  if (dl) dl.addEventListener('click', async () => {
+  if (dl) dl.addEventListener('click', () => {
     if (!requireAuth()) return;
-    dl.disabled = true;
-    try {
-      const url = await storage.ref(d.contractFile.storagePath).getDownloadURL();
-      window.open(url, '_blank', 'noopener');
-    } catch (e) {
-      console.error(e);
-      showToast('Could not get the contract download link.', 'error');
-    }
-    dl.disabled = false;
+    const link = d.contractFile && d.contractFile.driveLink;
+    if (link) window.open(link, '_blank', 'noopener');
+    else showToast('No contract link on this deal.', 'error');
   });
 }
 
@@ -336,13 +329,13 @@ $('export-btn').addEventListener('click', () => {
   const rows = [
     ['submittedAt', 'firstName', 'lastName', 'phone', 'email', 'street', 'city', 'state', 'zip',
      'picturesLink', 'repairsEstimate', 'zestimate', 'closeDate', 'contractAmount', 'status',
-     'contractFileName', 'contractStoragePath']
+     'contractFileName', 'contractDriveLink']
   ];
   visibleDeals().forEach(d => {
     rows.push([
       fmtDate(d.submittedAt), d.firstName, d.lastName, d.phone, d.email, d.street, d.city, d.state, d.zip,
       d.picturesLink, d.repairsEstimate, d.zestimate, d.closeDate, d.contractAmount, d.status,
-      d.contractFile ? d.contractFile.name : '', d.contractFile ? d.contractFile.storagePath : ''
+      d.contractFile ? d.contractFile.name : '', d.contractFile ? d.contractFile.driveLink : ''
     ]);
   });
   const csv = rows.map(r => r.map(csvCell).join(',')).join('\r\n');

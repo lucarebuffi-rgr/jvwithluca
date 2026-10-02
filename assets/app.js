@@ -11,7 +11,10 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const storage = firebase.storage();
+
+/* Contract uploads go to Luca's Google Drive via an Apps Script web app
+   (deployed as him, anonymous access). The script URL is baked in at deploy. */
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzpi7ftGhEUAGjkVa615wyeCEhj5xCiofc-ZPQiNUEEK8YUb2YMncJr9WmARgUYWod4/exec';
 
 const SMS_TEXT_VERSION = 'v1-2026-10-02';
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -146,11 +149,15 @@ $('deal-form').addEventListener('submit', async e => {
   }
 
   try {
-    const safeName = data.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const storagePath = 'jv_contracts/' + docRef.id + '/' + safeName;
-    await storage.ref(storagePath).put(data.file);
+    const base64 = await fileToBase64(data.file);
+    const up = await uploadViaAppsScript({
+      dealId: docRef.id,
+      fileName: data.file.name,
+      mimeType: data.file.type,
+      base64
+    });
     await docRef.update({
-      contractFile: { storagePath, name: data.file.name, size: data.file.size }
+      contractFile: { driveFileId: up.fileId, driveLink: up.url, name: data.file.name, size: data.file.size }
     });
   } catch (err) {
     console.error(err);
@@ -167,3 +174,70 @@ $('deal-form').addEventListener('submit', async e => {
   btn.disabled = false;
   btn.textContent = 'SUBMIT DEAL';
 });
+
+/* ---------- Drive upload via hidden iframe + postMessage ----------
+   Apps Script web apps 302-redirect POSTs, which breaks fetch; the reliable
+   pattern is a form POST into a hidden iframe, with the script posting the
+   JSON result back to this page. */
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const s = String(r.result || '');
+      const i = s.indexOf('base64,');
+      resolve(i >= 0 ? s.slice(i + 7) : s);
+    };
+    r.onerror = () => reject(new Error('could not read file'));
+    r.readAsDataURL(file);
+  });
+}
+
+function uploadViaAppsScript(payload) {
+  return new Promise((resolve, reject) => {
+    const tag = 'up' + Date.now();
+    const iframe = document.createElement('iframe');
+    iframe.name = tag;
+    iframe.style.display = 'none';
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = APPS_SCRIPT_URL;
+    form.target = tag;
+    form.enctype = 'application/x-www-form-urlencoded';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'json';
+    input.value = JSON.stringify(payload);
+    form.appendChild(input);
+
+    let done = false;
+    const timer = setTimeout(() => finish(new Error('upload timed out')), 120000);
+
+    function finish(err, data) {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      window.removeEventListener('message', onMsg);
+      iframe.remove();
+      form.remove();
+      if (err) reject(err);
+      else if (data && data.ok) resolve(data);
+      else reject(new Error((data && data.error) || 'upload failed'));
+    }
+    function onMsg(ev) {
+      if (!/\.googleusercontent\.com$/.test(ev.origin) && ev.origin !== 'https://script.google.com') return;
+      let data = null;
+      try { data = JSON.parse(ev.data); } catch (e) { return; }
+      if (!data || typeof data.ok === 'undefined') return;
+      finish(null, data);
+    }
+
+    window.addEventListener('message', onMsg);
+    document.body.appendChild(iframe);
+    document.body.appendChild(form);
+    try {
+      form.submit();
+    } catch (e) {
+      finish(e);
+    }
+  });
+}
