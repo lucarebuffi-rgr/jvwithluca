@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JV Deals — Admin CRM</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<style>
+  :root{--bg:#0c0c0c;--panel:#141414;--panel2:#1c1c1c;--gold:#d4af7a;--gold-bright:#f0d49a;--text:#f2ead9;--muted:#a89c83;--danger:#e0655f;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;min-height:100vh;}
+  .topbar{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid #2a2416;background:#101010;flex-wrap:wrap;}
+  .topbar h1{font-size:19px;letter-spacing:.14em;color:var(--gold-bright);flex:1;}
+  .btn{background:var(--gold);color:#141414;border:none;border-radius:8px;padding:9px 18px;font-weight:700;cursor:pointer;font-size:14px;}
+  .btn.ghost{background:transparent;color:var(--gold);border:1px solid var(--gold);}
+  .btn.sm{padding:6px 12px;font-size:13px;}
+  .btn:disabled{opacity:.5;cursor:wait;}
+  #user-chip{display:none;color:var(--muted);font-size:14px;}
+  #acct-banner{display:none;background:#3a1d1d;border-bottom:2px solid var(--gold);color:#f5d67b;padding:10px 18px;font-size:14px;}
+  #gate{max-width:520px;margin:90px auto;text-align:center;padding:40px 30px;background:var(--panel);border:1px solid #2a2416;border-radius:14px;}
+  #gate h2{color:var(--gold-bright);letter-spacing:.12em;margin-bottom:12px;}
+  #gate p{color:var(--muted);margin-bottom:22px;line-height:1.6;}
+  #app{display:none;max-width:1180px;margin:0 auto;padding:22px;}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;align-items:center;}
+  .fchip{background:var(--panel2);color:var(--muted);border:1px solid #3a3222;border-radius:20px;padding:7px 15px;font-size:13px;cursor:pointer;letter-spacing:.06em;}
+  .fchip.active{background:var(--gold);color:#141414;border-color:var(--gold);font-weight:700;}
+  .layout{display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start;}
+  #deal-list{display:flex;flex-direction:column;gap:10px;max-height:75vh;overflow-y:auto;}
+  .deal-card{background:var(--panel);border:1px solid #2a2416;border-radius:10px;padding:14px 16px;cursor:pointer;text-align:left;width:100%;color:var(--text);font-family:inherit;}
+  .deal-card:hover{border-color:var(--gold);}
+  .deal-card.selected{border-color:var(--gold-bright);box-shadow:0 0 14px rgba(212,175,122,.25);}
+  .deal-card .nm{font-weight:700;font-size:15px;}
+  .deal-card .ad{color:var(--muted);font-size:13px;margin-top:4px;line-height:1.5;}
+  .deal-card .meta{display:flex;justify-content:space-between;margin-top:8px;align-items:center;}
+  .badge{font-size:11px;font-weight:700;letter-spacing:.1em;padding:3px 10px;border-radius:12px;}
+  .st-new{background:#2b3a55;color:#9fc0ee;} .st-reviewing{background:#4a3a1a;color:#f0d49a;}
+  .st-vetted{background:#1a3a4a;color:#9fd8ee;} .st-accepted{background:#14331f;color:#9fe0a8;}
+  .st-rejected{background:#3a1d1d;color:#ee9f9f;} .st-closed{background:#2c2c2c;color:#bdbdbd;}
+  .when{font-size:12px;color:var(--muted);}
+  #detail{background:var(--panel);border:1px solid #2a2416;border-radius:12px;padding:26px;min-height:400px;}
+  #detail .empty{color:var(--muted);text-align:center;margin-top:80px;line-height:1.7;}
+  .d-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin:18px 0;}
+  .d-field .k{font-size:11px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:4px;}
+  .d-field .v{font-size:15px;line-height:1.5;word-break:break-word;}
+  .d-field .v a{color:var(--gold-bright);}
+  .pipeline{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 6px;}
+  .pbtn{background:var(--panel2);border:1px solid #3a3222;color:var(--text);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;letter-spacing:.05em;}
+  .pbtn.cur{background:var(--gold);color:#141414;font-weight:700;border-color:var(--gold);}
+  h3.sec{color:var(--gold-bright);font-size:14px;letter-spacing:.14em;margin:24px 0 10px;text-transform:uppercase;}
+  .note{background:var(--panel2);border:1px solid #2e2a20;border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:14px;line-height:1.55;}
+  .note .t{font-size:12px;color:var(--muted);margin-top:4px;}
+  .act{font-size:13px;color:var(--muted);padding:7px 0;border-bottom:1px solid #221e14;line-height:1.5;}
+  .act .t{color:#6f675a;}
+  #note-input{width:100%;background:var(--panel2);border:1px solid #3a3222;border-radius:8px;color:var(--text);padding:10px 12px;font-size:14px;font-family:inherit;min-height:70px;margin-top:8px;}
+  .rowbtns{display:flex;gap:10px;margin-top:10px;}
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 22px;border-radius:8px;font-size:14px;display:none;z-index:50;max-width:90vw;}
+  #toast.error{display:block;background:#3a1d1d;border:1px solid var(--danger);color:#f2b8b3;}
+  #toast.ok{display:block;background:#14331f;border:1px solid #7fc97f;color:#c9ecc9;}
+  @media (max-width:900px){.layout{grid-template-columns:1fr;}#deal-list{max-height:none;}}
+  @media (max-width:560px){.d-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div id="acct-banner">
+  <span class="acct-banner-msg" style="font-weight:600;"></span>
+  <button id="acct-switch-btn" class="btn sm" style="margin-left:14px;">Switch Google account</button>
+</div>
+<div class="topbar">
+  <h1>JV DEALS &mdash; ADMIN</h1>
+  <span id="user-chip"></span>
+  <button id="export-btn" class="btn ghost sm" style="display:none;">Export CSV</button>
+  <button id="auth-btn" class="btn sm">Sign in with Google</button>
+</div>
+
+<div id="gate">
+  <h2>PRIVATE CRM</h2>
+  <p>Sign in with your Royal Groups Realty Google account to view and manage JV deal submissions.</p>
+  <button class="btn" id="gate-signin">Sign in with Google</button>
+</div>
+
+<div id="app">
+  <div class="filters" id="filters"></div>
+  <div class="layout">
+    <div id="deal-list"></div>
+    <div id="detail"><div class="empty">Select a deal to view details.</div></div>
+  </div>
+</div>
+<div id="toast"></div>
+<script src="assets/admin.js"></script>
+</body>
+</html>

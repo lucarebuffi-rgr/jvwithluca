@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JV With Luca — Submit Your Deal</title>
+<meta name="description" content="Wholesalers: submit your off-market deal under contract to JV with Luca. Georgia and Texas.">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<style>
+  :root{
+    --bg:#0c0c0c; --panel:#141414; --panel2:#1a1a1a;
+    --gold:#d4af7a; --gold-bright:#f0d49a; --gold-dim:#9a7f52;
+    --text:#f2ead9; --muted:#a89c83; --danger:#e0655f; --ok:#7fc97f;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:Georgia,'Times New Roman',serif; min-height:100vh;}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 20px;}
+  header.hero{text-align:center; padding:56px 20px 10px;}
+  .hero h1{
+    font-size:clamp(42px,7vw,76px); letter-spacing:.12em; font-weight:700;
+    color:var(--gold-bright);
+    text-shadow:0 0 18px rgba(212,175,122,.55), 0 0 60px rgba(212,175,122,.25);
+  }
+  .hero p.tag{color:var(--muted); letter-spacing:.28em; font-size:13px; margin-top:10px; text-transform:uppercase; font-family:system-ui,sans-serif;}
+  .avatar-zone{display:flex; justify-content:center; padding:26px 0 6px;}
+  .avatar-zone img{
+    width:190px; height:270px; object-fit:cover; border-radius:14px;
+    border:2px solid var(--gold-dim);
+    box-shadow:0 0 30px rgba(212,175,122,.35);
+    animation:floaty 4.5s ease-in-out infinite;
+    background:#1a1a1a;
+  }
+  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  .maps{display:flex; gap:32px; justify-content:center; align-items:flex-start; padding:30px 0 10px; flex-wrap:wrap;}
+  .state-card{text-align:center; cursor:pointer; background:none; border:none; font-family:inherit; padding:6px;}
+  .state-card svg{width:min(300px,70vw); height:auto; display:block; margin:0 auto; transition:filter .25s ease, transform .25s ease;}
+  .state-card path{fill:#c9a86a; stroke:#8a6f3e; stroke-width:2; transition:fill .25s ease;}
+  .state-card:hover svg, .state-card:focus-visible svg{filter:drop-shadow(0 0 22px rgba(240,212,154,.65)); transform:scale(1.04);}
+  .state-card:hover path{fill:#e3c078;}
+  .state-card .sname{margin-top:10px; font-size:20px; letter-spacing:.3em; color:var(--gold-bright); font-family:system-ui,sans-serif; font-weight:600;}
+  .state-card .cta{margin-top:6px; font-size:13px; color:var(--muted); font-family:system-ui,sans-serif; letter-spacing:.08em;}
+  .guidelines{max-width:760px; margin:34px auto 0; padding:26px 30px; background:var(--panel); border:1px solid #2a2416; border-radius:12px;}
+  .guidelines h2{color:var(--gold-bright); letter-spacing:.18em; font-size:18px; margin-bottom:14px; text-align:center; font-family:system-ui,sans-serif;}
+  .guidelines ol{padding-left:22px; color:var(--gold); font-weight:700; line-height:2; font-size:16px;}
+  .guidelines li span{color:var(--text); font-weight:400;}
+  /* ---- form ---- */
+  #form-section{max-height:0; overflow:hidden; opacity:0; transition:max-height .7s ease, opacity .5s ease;}
+  #form-section.open{max-height:4000px; opacity:1;}
+  .form-card{max-width:760px; margin:36px auto 60px; background:var(--panel); border:1px solid var(--gold-dim); border-radius:14px; padding:34px 30px; box-shadow:0 0 40px rgba(212,175,122,.12);}
+  .form-card h2{color:var(--gold-bright); letter-spacing:.14em; font-size:22px; text-align:center; font-family:system-ui,sans-serif;}
+  .deal-state-line{text-align:center; color:var(--muted); margin:10px 0 24px; font-family:system-ui,sans-serif; font-size:14px; letter-spacing:.06em;}
+  .deal-state-line strong{color:var(--gold-bright);}
+  .deal-state-line button{background:none; border:none; color:var(--gold); text-decoration:underline; cursor:pointer; font-size:13px; margin-left:8px;}
+  .frow{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;}
+  .frow.single{grid-template-columns:1fr;}
+  .field label{display:block; font-family:system-ui,sans-serif; font-size:13px; letter-spacing:.06em; color:var(--muted); margin-bottom:6px; text-transform:uppercase;}
+  .field label .req{color:var(--gold-bright);}
+  .field input[type=text], .field input[type=email], .field input[type=tel], .field input[type=date], .field input[type=number]{
+    width:100%; padding:12px 14px; background:var(--panel2); border:1px solid #3a3222; border-radius:8px;
+    color:var(--text); font-size:16px; font-family:system-ui,sans-serif;
+  }
+  .field input:focus{outline:none; border-color:var(--gold); box-shadow:0 0 0 2px rgba(212,175,122,.25);}
+  .field input[readonly]{color:var(--gold-bright); background:#101010;}
+  .money{position:relative;}
+  .money span{position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--muted); font-family:system-ui,sans-serif;}
+  .money input{padding-left:30px !important;}
+  .hint{font-size:12px; color:var(--muted); margin-top:6px; font-family:system-ui,sans-serif; line-height:1.5;}
+  .consent{display:flex; gap:12px; align-items:flex-start; background:var(--panel2); border:1px solid #3a3222; border-radius:8px; padding:14px; margin:6px 0 20px;}
+  .consent input{margin-top:4px; width:18px; height:18px; accent-color:var(--gold); flex:0 0 auto;}
+  .consent p{font-size:13px; color:var(--muted); font-family:system-ui,sans-serif; line-height:1.6;}
+  #submit-btn{
+    width:100%; padding:16px; font-size:18px; letter-spacing:.14em; font-weight:700; font-family:system-ui,sans-serif;
+    color:#141414; background:linear-gradient(180deg,var(--gold-bright),var(--gold)); border:none; border-radius:10px; cursor:pointer;
+    box-shadow:0 0 24px rgba(212,175,122,.35); transition:transform .15s ease, box-shadow .15s ease;
+  }
+  #submit-btn:hover:not(:disabled){transform:translateY(-2px); box-shadow:0 0 34px rgba(212,175,122,.55);}
+  #submit-btn:disabled{opacity:.55; cursor:wait;}
+  #form-msg{margin-top:18px; font-family:system-ui,sans-serif; font-size:15px; line-height:1.6; display:none; padding:14px 16px; border-radius:8px;}
+  #form-msg.error{display:block; background:#2a1512; border:1px solid var(--danger); color:#f2b8b3;}
+  #form-msg.success{display:block; background:#122a14; border:1px solid var(--ok); color:#c9ecc9;}
+  footer{text-align:center; padding:30px 20px 46px; color:#5d5545; font-size:12px; font-family:system-ui,sans-serif; letter-spacing:.1em;}
+  @media (max-width:640px){
+    .frow{grid-template-columns:1fr;}
+    .avatar-zone img{width:150px; height:214px;}
+    .form-card{padding:24px 18px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>JV WITH LUCA</h1>
+    <p class="tag">Joint Venture Deals &mdash; Georgia &amp; Texas</p>
+  </header>
+
+  <div class="avatar-zone">
+    <img src="assets/avatar.png" alt="Luca">
+  </div>
+
+  <div class="maps" role="group" aria-label="Choose your deal's state">
+    <button class="state-card" id="pick-ga" aria-label="Submit a Georgia deal">
+      <svg viewBox="0 0 100 130" aria-hidden="true">
+        <path d="M24,8 L76,8 L80,28 L74,52 L84,68 L78,84 L72,102 L60,120 L42,116 L26,100 L18,72 L16,42 L20,16 Z"/>
+      </svg>
+      <div class="sname">GEORGIA</div>
+      <div class="cta">Click to submit a GA deal</div>
+    </button>
+    <button class="state-card" id="pick-tx" aria-label="Submit a Texas deal">
+      <svg viewBox="0 0 200 170" aria-hidden="true">
+        <path d="M35,8 L75,8 L75,55 L145,50 L163,72 L170,96 L158,120 L142,150 L118,136 L100,118 L76,110 L52,108 L48,78 L35,66 Z"/>
+      </svg>
+      <div class="sname">TEXAS</div>
+      <div class="cta">Click to submit a TX deal</div>
+    </button>
+  </div>
+
+  <section class="guidelines">
+    <h2>GUIDELINES</h2>
+    <ol>
+      <li><span>Must be UNDER CONTRACT and you must be able to upload it.</span></li>
+      <li><span>Must be OFF-MARKET — no MLS, no FSBO.</span></li>
+      <li><span>50/50 assignment fee split agreed upfront.</span></li>
+      <li><span>Your city or state not listed? Submit it anyway — we&rsquo;ll let you know right away if we can&rsquo;t move it.</span></li>
+    </ol>
+  </section>
+
+  <section id="form-section" aria-live="polite">
+    <div class="form-card">
+      <h2>SUBMIT YOUR DEAL</h2>
+      <p class="deal-state-line">Submitting a <strong id="deal-state-name">—</strong> deal
+        <button type="button" id="change-state">change state</button>
+      </p>
+      <form id="deal-form" novalidate>
+        <input type="hidden" id="f-state" value="">
+        <div class="frow">
+          <div class="field"><label>First Name <span class="req">*</span></label><input type="text" id="f-firstName" maxlength="100" autocomplete="given-name"></div>
+          <div class="field"><label>Last Name <span class="req">*</span></label><input type="text" id="f-lastName" maxlength="100" autocomplete="family-name"></div>
+        </div>
+        <div class="frow">
+          <div class="field"><label>Phone <span class="req">*</span></label><input type="tel" id="f-phone" autocomplete="tel" placeholder="(555) 123-4567"></div>
+          <div class="field"><label>Email <span class="req">*</span></label><input type="email" id="f-email" autocomplete="email"></div>
+        </div>
+        <div class="frow single">
+          <div class="field"><label>Property Street Address <span class="req">*</span></label><input type="text" id="f-street" maxlength="200" autocomplete="street-address"></div>
+        </div>
+        <div class="frow">
+          <div class="field"><label>City <span class="req">*</span></label><input type="text" id="f-city" maxlength="100" autocomplete="address-level2"></div>
+          <div class="field"><label>State <span class="req">*</span></label><input type="text" id="f-state-label" readonly tabindex="-1"></div>
+        </div>
+        <div class="frow single">
+          <div class="field"><label>Postal Code <span class="req">*</span></label><input type="text" id="f-zip" maxlength="20" autocomplete="postal-code"></div>
+        </div>
+        <div class="frow single">
+          <div class="field"><label>Property Pictures <span class="req">*</span></label>
+            <input type="text" id="f-pictures" maxlength="500" placeholder="https://…">
+            <p class="hint">Upload your pictures to a Google Drive or Dropbox folder, then paste the folder link here.</p>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="field"><label>Repairs ($) <span class="req">*</span></label>
+            <div class="money"><span>$</span><input type="number" id="f-repairs" min="0" step="0.01" inputmode="decimal"></div>
+          </div>
+          <div class="field"><label>Zestimate ($) <span class="req">*</span></label>
+            <div class="money"><span>$</span><input type="number" id="f-zestimate" min="0" step="0.01" inputmode="decimal"></div>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="field"><label>Contract Close Date <span class="req">*</span></label><input type="date" id="f-closeDate"></div>
+          <div class="field"><label>How much did you lock up the contract for? ($) <span class="req">*</span></label>
+            <div class="money"><span>$</span><input type="number" id="f-amount" min="0" step="0.01" inputmode="decimal"></div>
+          </div>
+        </div>
+        <div class="frow single">
+          <div class="field"><label>Proof of Contract <span class="req">*</span></label>
+            <input type="file" id="f-contract" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+            <p class="hint">Upload your contract — PDF, JPG, or PNG, max 10 MB.</p>
+          </div>
+        </div>
+        <label class="consent">
+          <input type="checkbox" id="f-consent">
+          <p>I agree to receive calls and texts about my submission at the number provided. Message/data rates may apply. Reply STOP to opt out. <span class="req" style="color:var(--gold-bright)">*</span></p>
+        </label>
+        <button type="submit" id="submit-btn">SUBMIT DEAL</button>
+        <div id="form-msg" role="status"></div>
+      </form>
+    </div>
+  </section>
+
+  <footer>JV WITH LUCA &mdash; OFF-MARKET DEALS ONLY</footer>
+</div>
+<script src="assets/app.js"></script>
+</body>
+</html>
